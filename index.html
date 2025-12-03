@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Interactive Sites Map — Top50 & 278</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{
+    --bg:#e0eaff;
+    --card:#ffffff80;
+    --accent:#2F80ED;
+    --accent-hover:#1C60B3;
+    --pending:#1F4E79;
+    --done:#E74C3C;
+    --shadow:0 8px 30px rgba(0,0,0,0.12);
+    --radius:12px;
+  }
+
+  html, body {
+    margin:0;
+    height:100%;
+    font-family: 'Inter', system-ui, Arial;
+    background: linear-gradient(to bottom right, #e0eaff, #ffffff);
+    color:#222;
+    font-size:14px;
+    line-height:1.5;
+  }
+
+  .app{
+    display:grid;
+    grid-template-columns:380px 1fr;
+    gap:16px;
+    height:100vh;
+    padding:16px;
+    box-sizing:border-box;
+  }
+
+  .panel{
+    background:var(--card);
+    backdrop-filter: blur(12px);
+    border-radius:var(--radius);
+    padding:16px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    overflow:auto;
+    border:1px solid rgba(255,255,255,0.3);
+  }
+
+  #map{
+    height:calc(100vh - 48px);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    border:2px solid rgba(255,255,255,0.3);
+  }
+
+  h2{
+    margin-bottom:12px;
+    font-weight:700;
+    font-size:1.4em;
+    color:#1a1a1a;
+  }
+
+  label{
+    font-weight:600;
+    color:#333;
+  }
+
+  .controls{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .row{
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+
+  select,input[type=text]{
+    padding:8px 10px;
+    border-radius:var(--radius);
+    border:1px solid #ccc;
+    transition:0.2s;
+  }
+  select:focus, input:focus{
+    border-color:var(--accent);
+    outline:none;
+    box-shadow:0 0 8px rgba(47,128,237,0.3);
+  }
+
+  .btn{
+    padding:10px 16px;
+    border-radius:var(--radius);
+    border:none;
+    font-weight:600;
+    cursor:pointer;
+    color:#fff;
+    background: linear-gradient(135deg,var(--accent),#1e5fc1);
+    transition:0.3s;
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  }
+  .btn:hover{
+    background:var(--accent-hover);
+    transform:translateY(-2px);
+    box-shadow:0 6px 16px rgba(0,0,0,0.25);
+  }
+
+  .stat{
+    background:rgba(255,255,255,0.85);
+    flex:1;
+    padding:12px;
+    border-radius:var(--radius);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    text-align:center;
+    transition:0.2s;
+  }
+  .stat:hover{
+    box-shadow:0 6px 18px rgba(0,0,0,0.15);
+    transform:translateY(-2px);
+  }
+
+  .stat .small{
+    font-weight:500;
+    color:#555;
+    margin-bottom:4px;
+  }
+
+  .stat div[id]{
+    font-weight:700;
+    font-size:20px;
+    margin-top:4px;
+  }
+
+  .legend .sw{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    display:inline-block;
+    margin-right:8px;
+    border:2px solid #fff;
+    box-shadow:0 0 4px rgba(0,0,0,0.25);
+  }
+
+  #details{
+    font-size:14px;
+    color:#222;
+    margin-top:8px;
+    padding:8px;
+    border-radius:var(--radius);
+    background:rgba(255,255,255,0.7);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .search-wrap{
+    display:flex;
+    gap:8px;
+  }
+
+  @media(max-width:950px){
+    .app{
+      grid-template-columns:1fr;
+      grid-template-rows:320px 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="panel">
+    <h2>Site Map Dashboard</h2>
+    <div class="controls">
+      <div class="row">
+        <label for="viewSelect">View</label>
+        <select id="viewSelect">
+          <option value="top50">Top 50</option>
+          <option value="batch278">278 sites</option>
+          <option value="all">All rows</option>
+        </select>
+        <button id="reloadBtn" class="btn" style="margin-left:auto">Reload CSV</button>
+      </div>
+
+      <div class="row">
+        <div class="stat">
+          <div class="small">Done / Total</div>
+          <div id="doneTotal">0 / 0</div>
+          <div class="small" id="donePct">0%</div>
+        </div>
+        <div class="stat">
+          <div class="small">Pending</div>
+          <div id="pendingCount">0</div>
+          <div class="small" id="totalCount">Total: 0</div>
+        </div>
+      </div>
+
+      <div class="row legend small">
+        <span class="sw" style="background:var(--done)"></span>Done
+        <span class="sw" style="background:var(--pending)"></span>Pending
+      </div>
+
+      <hr/>
+
+      <div class="row search-wrap">
+        <input id="searchInput" type="text" placeholder="Search Site Code or ENodeB ID"/>
+        <button id="searchBtn" class="btn">Find</button>
+      </div>
+
+      <div id="details">Hover a marker or search to see details here.</div>
+
+      <div style="margin-top:auto" class="small">
+        Note: this page fetches <code>Full List.csv</code> from Google Sheets. Reload updates data automatically.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:0">
+    <div id="map"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const map = L.map('map', { preferCanvas: true }).setView([3.0, 101.5], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+const markersLayer = L.layerGroup().addTo(map);
+
+function dotIcon(color){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:10px;height:10px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.25);"></div>`,
+    iconSize:[14,14],
+    iconAnchor:[7,7],
+    popupAnchor:[0,-10]
+  });
+}
+
+const ICON_PENDING = dotIcon('#1F4E79'); 
+const ICON_DONE    = dotIcon('#E74C3C'); 
+
+let allRows = [];
+let visibleMarkers = {};
+let pinnedMarker = null;
+
+function normalizeKey(k){ return (k||'').toString().trim().toLowerCase().replace(/\s+/g,'_'); }
+function isDoneStatus(s){
+  if(!s) return false;
+  s = s.toString().toLowerCase();
+  return /on\s*-?\s*air|onair|done|live|activated|active|\bon\b/.test(s);
+}
+
+function animateValue(id, start, end, total) {
+  const obj = document.getElementById(id);
+  let startTimestamp = null;
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / 500, 1);
+    const current = Math.floor(progress * (end - start) + start);
+    obj.textContent = total ? `${current} / ${total}` : current;
+    if (progress < 1) window.requestAnimationFrame(step);
+  };
+  window.requestAnimationFrame(step);
+}
+
+function loadCsvText(text){
+  const parsed = Papa.parse(text,{header:true, skipEmptyLines:true});
+  allRows = parsed.data.map((r,i)=>{
+    const norm = {};
+    for(const key in r) norm[normalizeKey(key)] = r[key];
+    const site_code = (norm['site_code'] ?? norm['site code'] ?? norm['site'] ?? '') + '';
+    const enodeb_id = (norm['enodeb_id'] ?? norm['enodeb id'] ?? norm['enodeb'] ?? '') + '';
+    const enodeb_name = (norm['enodeb_name'] ?? norm['enodeb name'] ?? '') + '';
+    const site_name = (norm['site_name'] ?? norm['site name'] ?? '') + '';
+    const swap_batch = (norm['swap_batch'] ?? norm['swap batch'] ?? '') + '';
+    const status = (norm['status'] ?? '') + '';
+    const lat = parseFloat((norm['latitude'] ?? norm['lat'] ?? '').toString().replace(/,/g,'.'));
+    const lon = parseFloat((norm['longitude'] ?? norm['lon'] ?? norm['lng'] ?? '').toString().replace(/,/g,'.'));
+    return {_rowIndex:i, site_code, enodeb_id, enodeb_name: enodeb_name || site_name || site_code, site_name, swap_batch, status, lat:Number.isFinite(lat)?lat:NaN, lon:Number.isFinite(lon)?lon:NaN};
+  });
+  render();
+}
+
+// ==== FIXED fetchFullList ====
+function fetchFullList() {
+  // Use CSV export link from Google Sheets (make sheet public)
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/10UMN4MqTENsbHqdp2XdH7wDuNcbKtHdQhB3rKrd7fhg/export?format=csv&id=10UMN4MqTENsbHqdp2XdH7wDuNcbKtHdQhB3rKrd7fhg&gid=0';
+
+  fetch(SHEET_CSV_URL)
+    .then(r => {
+      if(!r.ok) throw new Error('Network response not ok');
+      return r.text();
+    })
+    .then(text => loadCsvText(text))
+    .catch(err => alert('Could not fetch data from Google Sheets: ' + err));
+}
+
+// ==== Render & search functions ====
+function render(){
+  markersLayer.clearLayers();
+  visibleMarkers={};
+  const view = document.getElementById('viewSelect').value;
+  let rows = allRows.slice();
+  if(view==='top50') rows = allRows.filter(r=>(r.swap_batch||'').toLowerCase().includes('top 50'));
+  else if(view==='batch278') rows = allRows.filter(r=>(r.swap_batch||'').toLowerCase().includes('278 sites'));
+  let doneCount=0, pendingCount=0;
+  const bounds = [];
+  rows.forEach(r=>{
+    if(!Number.isFinite(r.lat)||!Number.isFinite(r.lon)) return;
+    const done = isDoneStatus(r.status);
+    if(done) doneCount++; else pendingCount++;
+    const icon = done?ICON_DONE:ICON_PENDING;
+    const popupHtml = `<div style="min-width:220px"><strong>${r.enodeb_name}</strong><br/><em>Site Name:</em> ${r.site_name}<br/><em>Site Code:</em> ${r.site_code}<br/><em>eNodeB ID:</em> ${r.enodeb_id}<br/><em>Swap Batch:</em> ${r.swap_batch}<br/><em>Status:</em> ${r.status}</div>`;
+    const m = L.marker([r.lat,r.lon],{icon});
+    m.bindPopup(popupHtml,{autoClose:false, closeOnClick:false});
+    m.on('mouseover',()=>{if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=null; m.openPopup(); document.getElementById('details').innerHTML = popupHtml;});
+    m.on('mouseout',()=>{if(pinnedMarker!==m) m.closePopup();});
+    m.on('click',()=>{if(pinnedMarker && pinnedMarker!==m) pinnedMarker.closePopup(); pinnedMarker=m; m.openPopup(); document.getElementById('details').innerHTML=popupHtml; map.setView(m.getLatLng(),16);});
+    m.addTo(markersLayer);
+    const key=(r.site_code||r.enodeb_id||('row'+r._rowIndex)).toString();
+    visibleMarkers[key]=m;
+    bounds.push([r.lat,r.lon]);
+  });
+  animateValue('doneTotal', 0, doneCount, rows.length);
+  animateValue('pendingCount',0,pendingCount);
+  document.getElementById('donePct').textContent = rows.length?Math.round(doneCount/rows.length*10000)/100+'%':'0%';
+  document.getElementById('totalCount').textContent = `Total: ${rows.length}`;
+  if(bounds.length){const b=L.latLngBounds(bounds); if(b.isValid()) map.fitBounds(b.pad(0.2));}
+}
+
+function searchAndZoom(term){
+  if(!term||!term.toString().trim()){alert('Enter a Site Code or ENodeB ID');return;}
+  term=term.toString().trim();
+  if(visibleMarkers[term]){
+    const m=visibleMarkers[term];
+    map.setView(m.getLatLng(),16);
+    document.getElementById('details').innerHTML=m.getPopup()?m.getPopup().getContent():'';
+    m.openPopup();
+    pinnedMarker=m;
+    return;
+  }
+  const found=allRows.find(r=>(r.site_code===term)||(r.enodeb_id===term));
+  if(found && Number.isFinite(found.lat)&&Number.isFinite(found.lon)){
+    map.setView([found.lat,found.lon],16);
+    const key=(found.site_code||found.enodeb_id||('row'+found._rowIndex)).toString();
+    if(visibleMarkers[key]){
+      const m=visibleMarkers[key];
+      document.getElementById('details').innerHTML = m.getPopup()?m.getPopup().getContent():'';
+      m.openPopup();
+      pinnedMarker=m;
+    } else {
+      const popupHtml=`<div style="min-width:220px"><strong>${found.enodeb_name}</strong><br/><em>Site Name:</em> ${found.site_name}<br/><em>Site Code:</em> ${found.site_code}<br/><em>eNodeB ID:</em> ${found.enodeb_id}<br/><em>Swap Batch:</em> ${found.swap_batch}<br/><em>Status:</em> ${found.status}</div>`;
+      document.getElementById('details').innerHTML=popupHtml;
+      pinnedMarker=null;
+    }
+  } else {alert('Site not found in CSV (try exact Site Code or ENodeB ID).');}
+}
+
+// ==== Event listeners ====
+document.getElementById('viewSelect').addEventListener('change', render);
+document.getElementById('reloadBtn').addEventListener('click', fetchFullList);
+document.getElementById('searchBtn').addEventListener('click',()=>searchAndZoom(document.getElementById('searchInput').value));
+document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault(); searchAndZoom(e.target.value);}});
+
+window.addEventListener('load',()=>{fetchFullList(); setTimeout(()=>map.invalidateSize(),300);});
+</script>
+</body>
+</html>
