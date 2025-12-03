@@ -380,7 +380,7 @@ function loadCsvText(text){
       on_air_date:r['On-Air Date']||'',
       ft_date:r['FT Date']||'',
       ssv_date:r['SSV Date']||'',
-      status:r['Status']||''
+      status:r['Progress']||''
   }));
 
   render();
@@ -556,7 +556,7 @@ let lastCsvText=null;
 const REFRESH_INTERVAL_MS=0.5*60*1000;
 
 async function fetchFullList(){
-  const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/1dOMpDElf3ZnGYlP__-gsPkucKy6fh7DwsRXTQ_4HZRw/export?format=csv';
+  const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/10UMN4MqTENsbHqdp2XdH7wDuNcbKtHdQhB3rKrd7fhg/export?format=csv';
   try{
     const response=await fetch(SHEET_CSV_URL);
     if(!response.ok) throw new Error('Network response not ok');
@@ -569,6 +569,5 @@ setInterval(fetchFullList,REFRESH_INTERVAL_MS);
 </script>
 </body>
 </html>
-
 
 
